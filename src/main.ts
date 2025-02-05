@@ -10,6 +10,14 @@ if ('serviceWorker' in navigator) {
       .catch(err => {
         console.log('ServiceWorker registration failed: ', err);
       });
+
+      if ('SyncManager' in window) {
+        console.log('Background Sync destekleniyor!');
+        // registerBackgroundSync();
+      } else {
+        console.log('Background Sync desteklenmiyor!');
+      }
+
   });
 }
 
@@ -30,7 +38,7 @@ const notesList = document.getElementById('notesList') as HTMLUListElement;
 const notes = JSON.parse(localStorage.getItem('notes') || '[]');
 renderNotes();
 
-saveNoteBtn.addEventListener('click', () => {
+saveNoteBtn.addEventListener('click', async () => {
   const noteText = noteInput.value.trim();
   if (noteText) {
     notes.push({
@@ -40,8 +48,36 @@ saveNoteBtn.addEventListener('click', () => {
     localStorage.setItem('notes', JSON.stringify(notes));
     noteInput.value = '';
     renderNotes();
+
+
+    if(!navigator.onLine) {
+      // Save data to cache
+      await saveDataToCache(notes); // Veriyi önbelleğe al
+      await registerBackgroundSync(); // Sync'i tetikle
+    }
+    
+    // Background sync
+    // testApi(); // hata olunca sync çalışır
   }
 });
+
+async function saveDataToCache(data: any) {
+  const cache = await caches.open('data-cache');
+  await cache.put('/pending-data', new Response(JSON.stringify(data)));
+  console.log('Veri önbelleğe alındı:', data);
+}
+
+// Background sync
+async function registerBackgroundSync() {
+  const registration = await navigator.serviceWorker.ready;
+  
+  try {
+    await registration.sync.register('send-data');
+    console.log('Sync kaydedildi!');
+  } catch (err) {
+    console.error('Sync hatası:', err); // NotAllowedError burada yakalanır
+  }
+}
 
 function renderNotes() {
   notesList.innerHTML = notes
@@ -86,3 +122,24 @@ generateRandomImageBtn.addEventListener('click', () => {
         image.src = imageUrl;
     });
 });
+
+/* function testApi() {
+  fetch('https://api.example.com/data')
+  .catch(() => registerBackgroundSync());
+} */
+
+/* async function requestPeriodicSync() {
+  const status = await navigator.permissions.query({
+    name: 'periodic-background-sync' as PermissionName
+  }) as { state: 'granted' | 'denied' };
+
+  if (status.state === 'granted') {
+    const registration = await navigator.serviceWorker.ready as ServiceWorkerRegistration;
+    await registration.periodicSync.register('get-updates', {
+      minInterval: 24 * 60 * 60 * 1000 // 1 gün
+    });
+  } else {
+    console.log('İzin reddedildi!');
+  }
+}
+ */

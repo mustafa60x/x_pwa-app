@@ -1,4 +1,4 @@
-const CACHE_VERSION = '0.1';
+const CACHE_VERSION = '0.6';
 const picsumUrl = 'https://picsum.photos/200';
 
 const appAssets = [
@@ -89,6 +89,15 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
+    /* if (!navigator.onLine) {
+        // Register a sync event
+        self.registration.sync.register('sync-data').then(() => {
+            console.log('Sync event registered');
+        }).catch(err => {
+            console.error('Failed to register sync event:', err);
+        });
+    } */
+
     /* event.respondWith(
         caches.match(event.request)
             .then((response) => {
@@ -114,4 +123,27 @@ self.addEventListener('fetch', (event) => {
     ); */
 });
 
+// Background Sync Event Listener
+self.addEventListener('sync', event => {
+    console.log('Sync event triggered:', event);
+    if (event.tag === 'send-data') {
+        event.waitUntil(
+            syncData()
+        );
+    }
+});
 
+// Sync Data Function
+async function syncData() {
+    console.log('İnternet geri geldi, senkronizasyon yapılıyor!');
+
+    const cache = await caches.open('data-cache');
+    const data = await cache.match('/pending-data');
+
+    if (data) {
+        console.log('Veri sunucuya gönderildi:', data);
+        await cache.delete('/pending-data');
+    } else {
+        console.log('Veri sunucuya gönderilemedi.');
+    }
+}
